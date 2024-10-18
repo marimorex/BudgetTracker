@@ -1,0 +1,7 @@
+services:
+  acount_service:
+    build:
+      context: ./account_service
+      dockerfile: Dockerfile
+    ports:
+      - 8000:8000
