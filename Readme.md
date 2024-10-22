@@ -22,6 +22,22 @@
 5. **Run tests**:
    `python3 -m unittest discover test`
 
+6. **Run pre-commit hooks before making a commit**:
+   Ensure that all files pass pre-commit checks with:
+   `pre-commit run --all-files`
 
 # Run project
 - docker compose up --build
+
+
+# Project Architecture
+
+```mermaid
+flowchart TD
+
+   subgraph ide1 [Account Microservice]
+   Account_service--> Account_DB
+
+end
+
+```

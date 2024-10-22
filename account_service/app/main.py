@@ -1,18 +1,15 @@
-# import asyncio
-# import uvicorn
-
-# async def main():
-#     config = uvicorn.Config("api.accounts:app", port=8000, log_level="info")
-#     server = uvicorn.Server(config)
-#     await server.serve()
-
-# if __name__ == "__main__":
-#     asyncio.run(main())
-
 import uvicorn
+from db.db_manager import DatabaseManager
+import time
 
 
 def main():
+    time.sleep(3)
+
+    # Check if we are in dev mode
+    db_manager = DatabaseManager()
+    db_manager.reset_database()
+
     uvicorn.run(
         "api.accounts:app",
         host="0.0.0.0",
