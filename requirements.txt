@@ -1,3 +1,7 @@
 pre-commit
 virtualenv
 sphinx
+python-dotenv
+fastapi
+pytest
+httpx
