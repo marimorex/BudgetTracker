@@ -1,14 +1,19 @@
 import uvicorn
 from db.db_manager import DatabaseManager
 import time
+from helpers.logger import logger
 
 
 def main():
+    logger.info("Starting account microservice")
+
+    # todo implement try catch to connect to db
     time.sleep(1)
 
     # Check if we are in dev mode
     db_manager = DatabaseManager()
     db_manager.reset_database()
+    logger.info("connected to DB accounts")
 
     uvicorn.run(
         "api.accounts:app",

@@ -1,8 +1,8 @@
 services:
   acount_service:
     build:
-      context: ./account_service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: dockerfile.account_service
     ports:
       - 8000:8000
     depends_on:

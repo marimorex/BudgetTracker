@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+import uuid
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from typing import List, Union, Annotated
 from app.daos.account_dao import (
     AccountDAO,
@@ -21,6 +22,7 @@ from app.schemas.account_schema import (
 )
 from app.db.db import SessionLocal, Session
 from fastapi.middleware.cors import CORSMiddleware
+from helpers.logger import logger, request_id_context
 
 app = FastAPI()
 
@@ -36,6 +38,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+"""
+    Middleware to add unique request ID for Logs
+"""
+
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    request_id = str(uuid.uuid4())  # Generate a unique request ID
+    request_id_context.set(request_id)  # Set it in the context variable
+
+    request.state.request_id = request_id  # Store it in request state
+
+    logger.info(f" Incoming request: {request.method} {request.url}")
+
+    response = await call_next(request)  # the respective function is called and awaited
+    response.headers[
+        "X-Request-ID"
+    ] = request_id  # Include the request ID in the response headers
+    logger.info(f" Response status: {response.status_code}")
+
+    # Clear the request_id after the response is sent
+    request_id_context.set(None)
+    return response
+
+
+def get_request_id(request: Request) -> str:
+    return request.state.request_id
+
 
 """
     Session DB for Dependency Injection
@@ -59,6 +90,7 @@ def get_session() -> Session:
     "/accounts", response_model=List[Union[SavingsAccount, CurrentAccount, CashAccount]]
 )
 def list_accounts(db: Annotated[Session, Depends(get_session)]) -> List[DBAccount]:
+    # todo add pagination
     account_dao = AccountDAO(db_session=db)
     accounts = account_dao.get_all_accounts()
     return accounts
@@ -74,9 +106,11 @@ def get_account_by_id(
     account_dao = AccountDAO(db_session=db)
     account = account_dao.get_account_by_id(account_id)
     if account is None:
+        logger.error(f"Acoount with id: {account_id} not found")
         raise HTTPException(
             status_code=404, detail=f"Acoount with id: {account_id} not found"
         )
+
     return account
 
 
@@ -92,6 +126,7 @@ def create_account_savings(
     account_dao = SavingsAccountDAO(db_session=db)
     new_account = account_dao.create_savings_account(account)
     if new_account is None:
+        logger.error(f"Error creating the account")
         raise HTTPException(status_code=500, detail=f"Error creating the account")
     return new_account
 
@@ -103,6 +138,7 @@ def create_account_current(
     account_dao = CurrentAccountDAO(db_session=db)
     new_account = account_dao.create_current_account(account)
     if new_account is None:
+        logger.error(f"Error creating the account")
         raise HTTPException(status_code=500, detail=f"Error creating the account")
     return new_account
 
@@ -114,6 +150,7 @@ def create_account_cash(
     account_dao = CashAccountDAO(db_session=db)
     new_account = account_dao.create_cash_account(account)
     if new_account is None:
+        logger.error(f"Error creating the account")
         raise HTTPException(status_code=500, detail=f"Error creating the account")
     return new_account
 
@@ -136,8 +173,10 @@ def update_account_savings(
     try:
         updated_account = account_dao.update_savings_account(account_id, account_update)
     except AccountTypeMismatchError as e:
+        logger.error(f"{e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
+        logger.error("Unexpected error", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred",
@@ -163,15 +202,19 @@ def update_account_current(
     account_dao = CurrentAccountDAO(db_session=db)
     try:
         updated_account = account_dao.update_current_account(account_id, account_update)
+
     except AccountTypeMismatchError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
     except Exception as e:
+        logger.error("Unexpected error", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred",
         )
 
     if not updated_account:
+        logger.error(f"Account not found")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
         )
@@ -193,11 +236,13 @@ def update_account_cash(
     except AccountTypeMismatchError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
+        logger.error("Unexpected error", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred",
         )
     if not updated_account:
+        logger.error(f"Account not found")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
         )
@@ -219,5 +264,8 @@ def list_accounts_by_user_id(
     account_dao = AccountDAO(db_session=db)
     accounts = account_dao.get_all_accounts_by_user_id(user_id)
     if accounts is None:
-        raise HTTPException(status_code=404, detail=f"No accounts for the user id {id}")
+        logger.error(f"No accounts for the user id {user_id}")
+        raise HTTPException(
+            status_code=404, detail=f"No accounts for the user id {user_id}"
+        )
     return accounts
