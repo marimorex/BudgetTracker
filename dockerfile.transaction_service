@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY ./transaction_service/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY ./transaction_service/app ./app
+COPY ./helpers ./app/helpers
+ENV PYTHONPATH="/app"
+CMD ["python", "app/main.py"]
